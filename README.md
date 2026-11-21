@@ -11,6 +11,8 @@ Implemented interfaces:
 - `org.freedesktop.impl.portal.Inhibit`: logout and suspend through logind inhibitor locks,
   idle through `org.freedesktop.ScreenSaver` (served by Noctalia), and session monitors.
 - `org.freedesktop.impl.portal.Access`: the permission dialog with its choices.
+- `org.freedesktop.impl.portal.AppChooser`: the application that opens a file or URI, with
+  updates of the offered list while the dialog is open.
 
 Dialogs run in `noctalia-portal-dialog`, one process per dialog, so the daemon itself has no
 Wayland connection. Their colours come from a Noctalia template; add to

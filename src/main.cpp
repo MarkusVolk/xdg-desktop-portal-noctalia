@@ -1,4 +1,5 @@
 #include "access/access.h"
+#include "appchooser/appchooser.h"
 #include "inhibit/inhibit.h"
 #include "settings/settings.h"
 
@@ -20,6 +21,7 @@ namespace {
     std::unique_ptr<xdpn::Settings> settings;
     std::unique_ptr<xdpn::Inhibit> inhibit;
     std::unique_ptr<xdpn::Access> access;
+    std::unique_ptr<xdpn::AppChooser> appChooser;
     int status = 0;
   };
 
@@ -55,6 +57,7 @@ int main(int argc, char** argv) {
         self->settings = std::make_unique<xdpn::Settings>(connection);
         self->inhibit = std::make_unique<xdpn::Inhibit>(connection);
         self->access = std::make_unique<xdpn::Access>(connection);
+        self->appChooser = std::make_unique<xdpn::AppChooser>(connection);
       },
       nullptr,
       +[](GDBusConnection* /*connection*/, const char* name, gpointer data) {
@@ -67,6 +70,7 @@ int main(int argc, char** argv) {
 
   g_main_loop_run(daemon.loop);
 
+  daemon.appChooser.reset();
   daemon.access.reset();
   daemon.inhibit.reset();
   daemon.settings.reset();

@@ -37,6 +37,7 @@ assetsdir = get_option('prefix') / get_option('datadir') / meson.project_name() 
 core = static_library('xdpn-core',
   files(
     'src/access/access.cpp',
+    'src/appchooser/appchooser.cpp',
     'src/dbus/dialog_process.cpp',
     'src/dbus/interface.cpp',
     'src/dialog/request.cpp',
