@@ -1,3 +1,4 @@
+#include "access/access.h"
 #include "inhibit/inhibit.h"
 #include "settings/settings.h"
 
@@ -18,6 +19,7 @@ namespace {
     GMainLoop* loop = nullptr;
     std::unique_ptr<xdpn::Settings> settings;
     std::unique_ptr<xdpn::Inhibit> inhibit;
+    std::unique_ptr<xdpn::Access> access;
     int status = 0;
   };
 
@@ -52,6 +54,7 @@ int main(int argc, char** argv) {
         auto* self = static_cast<Daemon*>(data);
         self->settings = std::make_unique<xdpn::Settings>(connection);
         self->inhibit = std::make_unique<xdpn::Inhibit>(connection);
+        self->access = std::make_unique<xdpn::Access>(connection);
       },
       nullptr,
       +[](GDBusConnection* /*connection*/, const char* name, gpointer data) {
@@ -64,6 +67,7 @@ int main(int argc, char** argv) {
 
   g_main_loop_run(daemon.loop);
 
+  daemon.access.reset();
   daemon.inhibit.reset();
   daemon.settings.reset();
   g_bus_unown_name(owner);

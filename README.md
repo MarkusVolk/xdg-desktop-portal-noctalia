@@ -10,6 +10,17 @@ Implemented interfaces:
   `accent-color`).
 - `org.freedesktop.impl.portal.Inhibit`: logout and suspend through logind inhibitor locks,
   idle through `org.freedesktop.ScreenSaver` (served by Noctalia), and session monitors.
+- `org.freedesktop.impl.portal.Access`: the permission dialog with its choices.
+
+Dialogs run in `noctalia-portal-dialog`, one process per dialog, so the daemon itself has no
+Wayland connection. Their colours come from a Noctalia template; add to
+`~/.config/noctalia/config.toml`:
+
+```toml
+[theme.templates.user.xdg-desktop-portal-noctalia]
+input_path = "/usr/share/xdg-desktop-portal-noctalia/templates/colors.toml"
+output_path = "$XDG_CONFIG_HOME/xdg-desktop-portal-noctalia/colors.toml"
+```
 
 Printing and file choosing are left to other backends (xdg-desktop-portal-gtk, Luciole).
 
@@ -21,7 +32,9 @@ ninja -C build
 meson test -C build
 ```
 
-Dependencies: GLib/GIO ≥ 2.76.
+Dependencies: GLib/GIO ≥ 2.76, nlohmann-json; for the dialog helper (`-Ddialog=true`, the
+default) also what Noctalia's lib/ needs: wayland, EGL/GLES 2, freetype, fontconfig, cairo, pango,
+harfbuzz, xkbcommon, stb, tomlplusplus.
 
 ## Using it
 

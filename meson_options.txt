@@ -1,1 +1,2 @@
+option('dialog', type: 'boolean', value: true, description: 'Build the dialog helper (Access, AppChooser)')
 option('tests', type: 'boolean', value: true, description: 'Build the unit tests')
