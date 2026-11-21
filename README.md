@@ -8,6 +8,8 @@ Implemented interfaces:
 - `org.freedesktop.impl.portal.Settings`: the GNOME desktop GSettings schemas (Noctalia writes
   the colour scheme there) and `org.freedesktop.appearance` (`color-scheme`, `contrast`,
   `accent-color`).
+- `org.freedesktop.impl.portal.Inhibit`: logout and suspend through logind inhibitor locks,
+  idle through `org.freedesktop.ScreenSaver` (served by Noctalia), and session monitors.
 
 Printing and file choosing are left to other backends (xdg-desktop-portal-gtk, Luciole).
 

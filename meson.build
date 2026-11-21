@@ -23,10 +23,11 @@ libexecdir = get_option('prefix') / get_option('libexecdir')
 core = static_library('xdpn-core',
   files(
     'src/dbus/interface.cpp',
+    'src/inhibit/inhibit.cpp',
     'src/settings/settings.cpp',
   ),
   include_directories: include_directories('src'),
-  dependencies: [glib_dep, gio_dep],
+  dependencies: [glib_dep, gio_dep, gio_unix_dep],
 )
 
 executable('xdg-desktop-portal-noctalia',
@@ -63,6 +64,12 @@ if get_option('tests')
     files('tests/settings_test.cpp'),
     include_directories: include_directories('src'),
     link_with: core,
-    dependencies: [glib_dep, gio_dep],
+    dependencies: [glib_dep, gio_dep, gio_unix_dep],
+  ))
+  test('inhibit', executable('inhibit-test',
+    files('tests/inhibit_test.cpp'),
+    include_directories: include_directories('src'),
+    link_with: core,
+    dependencies: [glib_dep, gio_dep, gio_unix_dep],
   ))
 endif
