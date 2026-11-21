@@ -1,6 +1,9 @@
 #include "access/access.h"
 #include "appchooser/appchooser.h"
+#include "email/email.h"
 #include "inhibit/inhibit.h"
+#include "lockdown/lockdown.h"
+#include "notification/notification.h"
 #include "settings/settings.h"
 
 #include <gio/gio.h>
@@ -22,6 +25,9 @@ namespace {
     std::unique_ptr<xdpn::Inhibit> inhibit;
     std::unique_ptr<xdpn::Access> access;
     std::unique_ptr<xdpn::AppChooser> appChooser;
+    std::unique_ptr<xdpn::Lockdown> lockdown;
+    std::unique_ptr<xdpn::Email> email;
+    std::unique_ptr<xdpn::Notification> notification;
     int status = 0;
   };
 
@@ -58,6 +64,9 @@ int main(int argc, char** argv) {
         self->inhibit = std::make_unique<xdpn::Inhibit>(connection);
         self->access = std::make_unique<xdpn::Access>(connection);
         self->appChooser = std::make_unique<xdpn::AppChooser>(connection);
+        self->lockdown = std::make_unique<xdpn::Lockdown>(connection);
+        self->email = std::make_unique<xdpn::Email>(connection);
+        self->notification = std::make_unique<xdpn::Notification>(connection);
       },
       nullptr,
       +[](GDBusConnection* connection, const char* name, gpointer data) {
@@ -75,6 +84,9 @@ int main(int argc, char** argv) {
 
   g_main_loop_run(daemon.loop);
 
+  daemon.notification.reset();
+  daemon.email.reset();
+  daemon.lockdown.reset();
   daemon.appChooser.reset();
   daemon.access.reset();
   daemon.inhibit.reset();

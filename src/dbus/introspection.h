@@ -108,4 +108,111 @@ namespace xdpn::introspection {
   </interface>
 </node>)xml";
 
+  inline constexpr char kAccount[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.Account">
+    <method name="GetUserInformation">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="window" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In3" value="QVariantMap"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out1" value="QVariantMap"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+  </interface>
+</node>)xml";
+
+  inline constexpr char kEmail[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.Email">
+    <method name="ComposeEmail">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In3" value="QVariantMap"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out1" value="QVariantMap"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+  </interface>
+</node>)xml";
+
+  inline constexpr char kLockdown[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.Lockdown">
+    <property name="disable-printing" type="b" access="readwrite"/>
+    <property name="disable-save-to-disk" type="b" access="readwrite"/>
+    <property name="disable-application-handlers" type="b" access="readwrite"/>
+    <property name="disable-location" type="b" access="readwrite"/>
+    <property name="disable-camera" type="b" access="readwrite"/>
+    <property name="disable-microphone" type="b" access="readwrite"/>
+    <property name="disable-sound-output" type="b" access="readwrite"/>
+  </interface>
+</node>)xml";
+
+  inline constexpr char kDynamicLauncher[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.DynamicLauncher">
+    <method name="PrepareInstall">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      <arg type="s" name="name" direction="in"/>
+      <arg type="v" name="icon_v" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In5" value="QVariantMap"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out1" value="QVariantMap"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+    <method name="RequestInstallToken">
+      <arg type="s" name="app_id" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In1" value="QVariantMap"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+    </method>
+    <property name="SupportedLauncherTypes" type="u" access="read"/>
+    <property name="version" type="u" access="read"/>
+  </interface>
+</node>)xml";
+
+  inline constexpr char kWallpaper[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.Wallpaper">
+    <method name="SetWallpaperURI">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      <arg type="s" name="uri" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In4" value="QVariantMap"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+    </method>
+  </interface>
+</node>)xml";
+
+  inline constexpr char kNotification[] = R"xml(<node>
+<interface name="org.freedesktop.impl.portal.Notification">
+    <method name="AddNotification">
+      <annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="id" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In2" value="QVariantMap"/>
+      <arg type="a{sv}" name="notification" direction="in"/>
+    </method>
+    <method name="RemoveNotification">
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="id" direction="in"/>
+    </method>
+    <property name="SupportedOptions" type="a{sv}" access="read">
+      <annotation name="org.qtproject.QtDBus.QtTypeName" value="QVariantMap"/>
+    </property>
+    <signal name="ActionInvoked">
+      <arg type="s" name="app_id"/>
+      <arg type="s" name="id"/>
+      <arg type="s" name="action"/>
+      <arg type="av" name="parameter"/>
+    </signal>
+    <property name="version" type="u" access="read"/>
+  </interface>
+</node>)xml";
+
 } // namespace xdpn::introspection

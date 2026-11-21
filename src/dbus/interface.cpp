@@ -9,9 +9,9 @@
 namespace xdpn::dbus {
 
   Interface::Interface(GDBusConnection* connection, std::string path, const char* introspectionXml,
-                       MethodHandler methods, PropertyGetter properties)
+                       MethodHandler methods, PropertyGetter properties, PropertySetter setter)
       : m_connection(G_DBUS_CONNECTION(g_object_ref(connection))), m_path(std::move(path)),
-        m_methods(std::move(methods)), m_properties(std::move(properties)) {
+        m_methods(std::move(methods)), m_properties(std::move(properties)), m_setter(std::move(setter)) {
     GError* error = nullptr;
     m_node = g_dbus_node_info_new_for_xml(introspectionXml, &error);
     if (m_node == nullptr || m_node->interfaces == nullptr || m_node->interfaces[0] == nullptr) {
@@ -23,6 +23,7 @@ namespace xdpn::dbus {
     GDBusInterfaceVTable vtable{};
     vtable.method_call = &Interface::onMethodCall;
     vtable.get_property = &Interface::onGetProperty;
+    vtable.set_property = &Interface::onSetProperty;
     m_registrationId = g_dbus_connection_register_object(m_connection, m_path.c_str(), m_node->interfaces[0], &vtable,
                                                          this, nullptr, &error);
     if (m_registrationId == 0) {
@@ -55,6 +56,19 @@ namespace xdpn::dbus {
     }
   }
 
+  void Interface::emitPropertyChanged(const char* property, GVariant* value) const {
+    GVariantBuilder changed;
+    g_variant_builder_init(&changed, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add(&changed, "{sv}", property, value);
+    GError* error = nullptr;
+    if (!g_dbus_connection_emit_signal(m_connection, nullptr, m_path.c_str(), "org.freedesktop.DBus.Properties",
+                                       "PropertiesChanged",
+                                       g_variant_new("(sa{sv}as)", name(), &changed, nullptr), &error)) {
+      std::println(stderr, "dbus: cannot emit PropertiesChanged for {}: {}", property, error->message);
+      g_clear_error(&error);
+    }
+  }
+
   void Interface::onMethodCall(GDBusConnection* /*connection*/, const char* /*sender*/, const char* /*path*/,
                                const char* /*interface*/, const char* method, GVariant* parameters,
                                GDBusMethodInvocation* invocation, gpointer data) {
@@ -75,6 +89,17 @@ namespace xdpn::dbus {
       g_set_error(error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_PROPERTY, "Unknown property %s", property);
     }
     return value;
+  }
+
+  gboolean Interface::onSetProperty(GDBusConnection* /*connection*/, const char* /*sender*/, const char* /*path*/,
+                                    const char* /*interface*/, const char* property, GVariant* value, GError** error,
+                                    gpointer data) {
+    auto* self = static_cast<Interface*>(data);
+    if (self->m_setter && self->m_setter(property, value)) {
+      return TRUE;
+    }
+    g_set_error(error, G_DBUS_ERROR, G_DBUS_ERROR_PROPERTY_READ_ONLY, "Property %s cannot be set", property);
+    return FALSE;
   }
 
   Request::Request(GDBusConnection* connection, const std::string& handle, CloseHandler onClose)

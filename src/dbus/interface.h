@@ -14,9 +14,10 @@ namespace xdpn::dbus {
   public:
     using MethodHandler = std::function<void(const std::string& method, GVariant* parameters, GDBusMethodInvocation* invocation)>;
     using PropertyGetter = std::function<GVariant*(const std::string& property)>;
+    using PropertySetter = std::function<bool(const std::string& property, GVariant* value)>;
 
     Interface(GDBusConnection* connection, std::string path, const char* introspectionXml, MethodHandler methods,
-              PropertyGetter properties = {});
+              PropertyGetter properties = {}, PropertySetter setter = {});
     ~Interface();
 
     Interface(const Interface&) = delete;
@@ -30,18 +31,24 @@ namespace xdpn::dbus {
 
     // Takes ownership of a floating parameters variant.
     void emitSignal(const char* signal, GVariant* parameters) const;
+    // org.freedesktop.DBus.Properties.PropertiesChanged for one property; takes a floating value.
+    void emitPropertyChanged(const char* property, GVariant* value) const;
 
   private:
     static void onMethodCall(GDBusConnection* connection, const char* sender, const char* path, const char* interface,
                              const char* method, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer data);
     static GVariant* onGetProperty(GDBusConnection* connection, const char* sender, const char* path,
                                    const char* interface, const char* property, GError** error, gpointer data);
+    static gboolean onSetProperty(GDBusConnection* connection, const char* sender, const char* path,
+                                  const char* interface, const char* property, GVariant* value, GError** error,
+                                  gpointer data);
 
     GDBusConnection* m_connection = nullptr;
     GDBusNodeInfo* m_node = nullptr;
     std::string m_path;
     MethodHandler m_methods;
     PropertyGetter m_properties;
+    PropertySetter m_setter;
     guint m_registrationId = 0;
   };
 

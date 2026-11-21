@@ -13,6 +13,10 @@ Implemented interfaces:
 - `org.freedesktop.impl.portal.Access`: the permission dialog with its choices.
 - `org.freedesktop.impl.portal.AppChooser`: the application that opens a file or URI, with
   updates of the offered list while the dialog is open.
+- `org.freedesktop.impl.portal.Lockdown`: the GNOME lockdown, location and privacy settings.
+- `org.freedesktop.impl.portal.Email`: a `mailto:` URI for the default mail client.
+- `org.freedesktop.impl.portal.Notification`: forwarded to the notification server (Noctalia),
+  with the default action and buttons sent back to the application.
 
 Dialogs run in `noctalia-portal-dialog`, one process per dialog, so the daemon itself has no
 Wayland connection. Their colours come from a Noctalia template; add to
