@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.noctalia
+Exec=@libexecdir@/xdg-desktop-portal-noctalia
+SystemdService=xdg-desktop-portal-noctalia.service
