@@ -36,7 +36,8 @@ meson test -C build
 
 Dependencies: GLib/GIO ≥ 2.76, nlohmann-json; for the dialog helper (`-Ddialog=true`, the
 default) also what Noctalia's lib/ needs: wayland, EGL/GLES 2, freetype, fontconfig, cairo, pango,
-harfbuzz, xkbcommon, stb, tomlplusplus.
+harfbuzz, xkbcommon, stb, tomlplusplus, and for the codec pack (application icons) librsvg,
+libwebp and libjxl.
 
 ## Using it
 

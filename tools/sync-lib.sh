@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mirror noctalia-shell's lib/ into this repository's lib/, without third_party/.
+# Mirror noctalia-shell's lib/ into this repository's lib/; of third_party/ only wuffs/, which the codec pack needs.
 # Usage: tools/sync-lib.sh [path/to/noctalia-shell]
 set -euo pipefail
 
@@ -12,5 +12,5 @@ if [[ -n "$(git -C "$root" status --porcelain -- lib)" ]]; then
   exit 1
 fi
 
-rsync -a --delete --exclude /third_party/ "$source/" "$root/lib/"
+rsync -a --delete --include /third_party/ --include "/third_party/wuffs/***" --exclude "/third_party/*" "$source/" "$root/lib/"
 git -C "$root" status --short -- lib

@@ -26,6 +26,8 @@ namespace xdpn::dialog {
   struct Application {
     std::string id;
     std::string name;
+    // Path of the icon file, empty for none.
+    std::string icon;
   };
 
   enum class Kind { Invalid, Access, AppChooser };
@@ -35,6 +37,7 @@ namespace xdpn::dialog {
     std::string title;
     std::string subtitle;
     std::string body;
+    // Path of an icon file, empty for the dialog's own glyph.
     std::string icon;
     std::string denyLabel;
     std::string grantLabel;

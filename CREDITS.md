@@ -5,8 +5,10 @@ xdg-desktop-portal-noctalia is built on the UI library of
 [xdg-desktop-portal-umbriel](https://github.com/noctalia-dev/xdg-desktop-portal-umbriel). Both are
 MIT licensed, Copyright (c) 2026 noctalia-dev.
 
-- `lib/` is an unchanged copy of Noctalia's `lib/` (without `third_party/`), refreshed with
-  `tools/sync-lib.sh`. Changes to it belong upstream.
+- `lib/` is an unchanged copy of Noctalia's `lib/` (of `third_party/` only `wuffs/`), refreshed
+  with `tools/sync-lib.sh`. Changes to it belong upstream.
+- `lib/third_party/wuffs/` is [Wuffs](https://github.com/google/wuffs), MIT or Apache-2.0
+  (`LICENSE-MIT`, `LICENSE-APACHE`), used by the codec pack for PNG and other raster icons.
 - From [Plume](https://github.com/MarkusVolk/plume), which adapted them from
   [Luciole](https://github.com/noctalia-dev/luciole): `src/dialog/main_loop.*`,
   `src/dialog/glib_poll_source.*`, `src/dialog/poll_sources.h`, `src/dialog/palette_file.*`.

@@ -60,10 +60,15 @@ int main(int argc, char** argv) {
         self->appChooser = std::make_unique<xdpn::AppChooser>(connection);
       },
       nullptr,
-      +[](GDBusConnection* /*connection*/, const char* name, gpointer data) {
+      +[](GDBusConnection* connection, const char* name, gpointer data) {
         auto* self = static_cast<Daemon*>(data);
-        std::println(stderr, "xdg-desktop-portal-noctalia: lost the bus name {}", name);
-        self->status = 1;
+        // Another instance owning or taking over the name is no failure; only a missing bus is.
+        if (connection == nullptr) {
+          std::println(stderr, "xdg-desktop-portal-noctalia: no session bus");
+          self->status = 1;
+        } else {
+          std::println(stderr, "xdg-desktop-portal-noctalia: {} is owned by another instance", name);
+        }
         g_main_loop_quit(self->loop);
       },
       &daemon, nullptr);

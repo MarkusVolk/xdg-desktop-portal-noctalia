@@ -41,6 +41,7 @@ core = static_library('xdpn-core',
     'src/dbus/dialog_process.cpp',
     'src/dbus/interface.cpp',
     'src/dialog/request.cpp',
+    'src/icons/icon_lookup.cpp',
     'src/inhibit/inhibit.cpp',
     'src/settings/settings.cpp',
   ),
@@ -59,6 +60,7 @@ executable('xdg-desktop-portal-noctalia',
 )
 
 if get_option('dialog')
+  noctalia_ui_build_codecs = true
   subdir('lib')
 
   build_config = configuration_data()
@@ -75,7 +77,7 @@ if get_option('dialog')
     ) + noctalia_ui_protocol_headers + [build_config_h],
     include_directories: [include_directories('src'), include_directories('.')],
     link_with: core,
-    dependencies: [noctalia_ui_dep, glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep,
+    dependencies: [noctalia_ui_dep, noctalia_ui_codecs_dep, glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep,
                    dependency('tomlplusplus', version: '>=3.4'), dependency('wayland-client')],
     install: true,
     install_dir: get_option('libexecdir'),
@@ -114,6 +116,12 @@ if get_option('tests')
   ))
   test('request', executable('request-test',
     files('tests/request_test.cpp'),
+    include_directories: include_directories('src'),
+    link_with: core,
+    dependencies: [glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep],
+  ))
+  test('icon-lookup', executable('icon-lookup-test',
+    files('tests/icon_lookup_test.cpp'),
     include_directories: include_directories('src'),
     link_with: core,
     dependencies: [glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep],

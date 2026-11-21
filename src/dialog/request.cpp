@@ -18,7 +18,7 @@ namespace xdpn::dialog {
     json applicationsJson(const std::vector<Application>& applications) {
       json list = json::array();
       for (const auto& app : applications) {
-        list.push_back({{"id", app.id}, {"name", app.name}});
+        list.push_back({{"id", app.id}, {"name", app.name}, {"icon", app.icon}});
       }
       return list;
     }
@@ -32,7 +32,7 @@ namespace xdpn::dialog {
         if (!item.is_object()) {
           continue;
         }
-        Application app{.id = text(item, "id"), .name = text(item, "name")};
+        Application app{.id = text(item, "id"), .name = text(item, "name"), .icon = text(item, "icon")};
         if (!app.id.empty()) {
           if (app.name.empty()) {
             app.name = app.id;

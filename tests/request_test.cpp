@@ -32,11 +32,12 @@ int main() {
 
   Request chooser;
   chooser.kind = Kind::AppChooser;
-  chooser.applications = {{"org.gnome.Loupe", "Image Viewer"}, {"", "skipped"}, {"x", ""}};
+  chooser.applications = {{"org.gnome.Loupe", "Image Viewer", "/usr/share/icons/loupe.svg"}, {"", "skipped", ""}, {"x", "", ""}};
   const auto apps = parseRequest(formatRequest(chooser)).applications;
   check(apps.size() == 2 && apps[1].name == "x", "applications: empty id skipped, empty name falls back to id");
+  check(apps[0].icon == "/usr/share/icons/loupe.svg", "icon path round trip");
 
-  const auto update = parseApplications(formatApplications({{"a", "A"}}));
+  const auto update = parseApplications(formatApplications({{"a", "A", ""}}));
   check(update && update->size() == 1, "application update");
   check(!parseApplications(R"({"kind":"access"})"), "no update without applications");
 

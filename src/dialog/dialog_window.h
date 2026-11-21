@@ -16,6 +16,7 @@ class Flex;
 class Node;
 class RadioButton;
 class RenderContext;
+class Renderer;
 class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
@@ -50,9 +51,10 @@ namespace xdpn::dialog {
     };
 
     void prepare();
-    void build();
+    void build(Renderer& renderer);
     void buildAccess(Flex& content);
-    void buildChooser(Flex& content);
+    void buildChooser(Flex& content, Renderer& renderer);
+    std::unique_ptr<Node> icon(Renderer& renderer, const std::string& path, float size, const char* glyph);
     void select(const std::string& application);
     void accept();
     void answer(Answer answer);

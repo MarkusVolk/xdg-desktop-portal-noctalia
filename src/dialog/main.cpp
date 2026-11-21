@@ -12,6 +12,8 @@
 #include "dialog/poll_sources.h"
 #include "dialog/request.h"
 #include "render/animation/animation_manager.h"
+#include "render/codecs/codecs.h"
+#include "render/core/async_texture_cache.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
 #include "wayland/wayland_connection.h"
@@ -141,6 +143,7 @@ namespace {
       setPalette(*palette);
     }
     initializeKeys();
+    codecs::installImageDecoder();
   }
 
   void writeAnswer(const xdpn::dialog::Answer& answer) {
@@ -159,6 +162,10 @@ namespace {
     graphics.initialize(connection.display());
     RenderContext renderer;
     renderer.initialize(graphics);
+    AsyncTextureCache textures;
+    textures.initialize(&graphics);
+    textures.setMakeCurrentCallback([&graphics] { graphics.makeCurrentSurfaceless(); });
+    renderer.setAsyncTextureCache(&textures);
     AnimationManager animations;
 
     std::optional<xdpn::dialog::DialogWindow> window;
@@ -174,7 +181,7 @@ namespace {
     DeferredCallPollSource deferred;
     TimerPollSource timers;
     KeyRepeatPollSource repeat(connection);
-    MainLoop loop(connection, {&deferred, &timers, &repeat, &glib}, [&window] {
+    MainLoop loop(connection, {&deferred, &timers, &repeat, &glib, &textures}, [&window] {
       if (g_stopRequested != 0) {
         window->cancel();
       }
@@ -187,6 +194,7 @@ namespace {
     connection.setPointerEventCallback({});
     connection.setKeyboardEventCallback({});
     window.reset();
+    renderer.setAsyncTextureCache(nullptr);
     renderer.cleanup();
     graphics.cleanup();
   }

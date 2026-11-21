@@ -1,6 +1,7 @@
 #include "appchooser/appchooser.h"
 
 #include "dbus/introspection.h"
+#include "icons/icon_lookup.h"
 
 #include <gio/gdesktopappinfo.h>
 
@@ -62,7 +63,7 @@ namespace xdpn {
           continue;
         }
         const char* name = g_app_info_get_display_name(G_APP_INFO(info));
-        list.push_back({.id = id, .name = name != nullptr ? name : id});
+        list.push_back({.id = id, .name = name != nullptr ? name : id, .icon = icons::lookup(g_app_info_get_icon(G_APP_INFO(info)))});
         g_object_unref(info);
       }
       return list;

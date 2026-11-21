@@ -5,6 +5,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/render_context.h"
 #include "ui/builders.h"
+#include "ui/controls/image.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -94,15 +95,27 @@ namespace xdpn::dialog {
       return;
     }
     UiPhaseScope phase(UiPhase::Layout);
+    auto& renderer = m_surface.renderTarget().renderer();
     if (m_rebuild) {
-      build();
+      build(renderer);
       m_rebuild = false;
     }
-    auto& renderer = m_surface.renderTarget().renderer();
     m_root->arrange(renderer, {0, 0, static_cast<float>(m_surface.width()), static_cast<float>(m_surface.height())});
   }
 
-  void DialogWindow::build() {
+  std::unique_ptr<Node> DialogWindow::icon(Renderer& renderer, const std::string& path, float size, const char* glyph) {
+    if (!path.empty()) {
+      auto image = ui::image({.fit = ImageFit::Contain, .width = size, .height = size});
+      ImageSourceOptions options;
+      options.targetSize = static_cast<int>(size);
+      image->setAsyncReadyCallback([this] { requestUpdate(); });
+      image->setSourceFile(renderer, path, options);
+      return image;
+    }
+    return ui::glyph({.glyph = glyph, .glyphSize = size, .color = colorSpecFromRole(ColorRole::Primary)});
+  }
+
+  void DialogWindow::build(Renderer& renderer) {
     m_applicationButtons.clear();
     m_accept = nullptr;
 
@@ -114,9 +127,7 @@ namespace xdpn::dialog {
 
     const bool chooser = m_request.kind == Kind::AppChooser;
     auto header = ui::row({.align = FlexAlign::Start, .gap = Style::spaceMd});
-    header->addChild(ui::glyph({.glyph = chooser ? "apps" : "shield-lock",
-                                .glyphSize = 28.0F,
-                                .color = colorSpecFromRole(ColorRole::Primary)}));
+    header->addChild(icon(renderer, m_request.icon, 28.0F, chooser ? "apps" : "shield-lock"));
     auto titles = ui::column({.align = FlexAlign::Start, .gap = Style::spaceXs, .flexGrow = 1.0F});
     titles->addChild(ui::label({.text = !m_request.title.empty() ? m_request.title : (chooser ? "Open With" : "Allow Access"),
                                 .fontSize = Style::fontSizeTitle,
@@ -137,7 +148,7 @@ namespace xdpn::dialog {
     root->addChild(std::move(header));
 
     if (chooser) {
-      buildChooser(*root);
+      buildChooser(*root, renderer);
     } else {
       buildAccess(*root);
     }
@@ -227,7 +238,7 @@ namespace xdpn::dialog {
     content.addChild(ui::spacer());
   }
 
-  void DialogWindow::buildChooser(Flex& content) {
+  void DialogWindow::buildChooser(Flex& content, Renderer& renderer) {
     ScrollView* scroll = nullptr;
     auto list = ui::scrollView({.out = &scroll,
                                 .scrollbarVisible = true,
@@ -250,12 +261,13 @@ namespace xdpn::dialog {
       Button* button = nullptr;
       items->addChild(ui::button({.out = &button,
                                   .text = app.name,
-                                  .glyph = "app-window",
                                   .controlHeight = Style::controlHeight,
                                   .selected = app.id == m_selected,
                                   .contentAlign = ButtonContentAlign::Start,
                                   .variant = ButtonVariant::Ghost,
+                                  .gap = Style::spaceSm,
                                   .onClick = [this, id = app.id] { select(id); }}));
+      button->insertChildAt(0, icon(renderer, app.icon, 24.0F, "app-window"));
       m_applicationButtons.emplace_back(app.id, button);
     }
     content.addChild(std::move(list));

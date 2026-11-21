@@ -1,6 +1,7 @@
 #include "access/access.h"
 
 #include "dbus/introspection.h"
+#include "icons/icon_lookup.h"
 
 #include <utility>
 #include <vector>
@@ -81,7 +82,7 @@ namespace xdpn {
     request.title = title;
     request.subtitle = subtitle;
     request.body = body;
-    request.icon = lookupString(options, "icon");
+    request.icon = icons::lookupName(lookupString(options, "icon"));
     request.denyLabel = lookupString(options, "deny_label");
     request.grantLabel = lookupString(options, "grant_label");
     request.choices = lookupChoices(options);
