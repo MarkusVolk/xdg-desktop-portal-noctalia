@@ -6,6 +6,9 @@
 #include "launcher/launcher.h"
 #include "lockdown/lockdown.h"
 #include "notification/notification.h"
+#ifdef XDPN_HAVE_PRINT
+#include "print/print.h"
+#endif
 #include "settings/settings.h"
 #include "wallpaper/wallpaper.h"
 
@@ -34,6 +37,9 @@ namespace {
     std::unique_ptr<xdpn::Account> account;
     std::unique_ptr<xdpn::Wallpaper> wallpaper;
     std::unique_ptr<xdpn::DynamicLauncher> launcher;
+#ifdef XDPN_HAVE_PRINT
+    std::unique_ptr<xdpn::Print> print;
+#endif
     int status = 0;
   };
 
@@ -76,6 +82,9 @@ int main(int argc, char** argv) {
         self->account = std::make_unique<xdpn::Account>(connection);
         self->wallpaper = std::make_unique<xdpn::Wallpaper>(connection);
         self->launcher = std::make_unique<xdpn::DynamicLauncher>(connection);
+#ifdef XDPN_HAVE_PRINT
+        self->print = std::make_unique<xdpn::Print>(connection);
+#endif
       },
       nullptr,
       +[](GDBusConnection* connection, const char* name, gpointer data) {
@@ -93,6 +102,9 @@ int main(int argc, char** argv) {
 
   g_main_loop_run(daemon.loop);
 
+#ifdef XDPN_HAVE_PRINT
+  daemon.print.reset();
+#endif
   daemon.launcher.reset();
   daemon.wallpaper.reset();
   daemon.account.reset();

@@ -11,7 +11,7 @@ namespace xdpn {
   DialogCalls::~DialogCalls() {
     for (auto& [handle, call] : m_calls) {
       (void)handle;
-      call->finish(call->invocation, {.response = dbus::Other, .choices = {}, .application = {}, .text = {}});
+      call->finish(call->invocation, {.response = dbus::Other, .choices = {}, .application = {}, .text = {}, .printJob = {}});
     }
     m_calls.clear();
     g_object_unref(m_connection);
@@ -33,7 +33,7 @@ namespace xdpn {
       complete(handle, answer);
     });
     if (!raw->dialog->started()) {
-      complete(handle, {.response = dbus::Other, .choices = {}, .application = {}, .text = {}});
+      complete(handle, {.response = dbus::Other, .choices = {}, .application = {}, .text = {}, .printJob = {}});
     }
   }
 

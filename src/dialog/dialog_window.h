@@ -17,6 +17,7 @@ class Input;
 class Node;
 class RadioButton;
 class RenderContext;
+class SelectDropdownPopup;
 class Renderer;
 class WaylandConnection;
 struct KeyboardEvent;
@@ -57,6 +58,10 @@ namespace xdpn::dialog {
     void buildChooser(Flex& content, Renderer& renderer);
     void buildDetails(Flex& content);
     void buildWallpaper(Flex& content, Renderer& renderer);
+    void buildPrint(Flex& content);
+    [[nodiscard]] const PrintPrinter* currentPrinter() const;
+    void choosePrinter(std::size_t index);
+    void updateAcceptState();
     std::unique_ptr<Node> icon(Renderer& renderer, const std::string& path, float size, const char* glyph);
     void select(const std::string& application);
     void accept();
@@ -77,6 +82,8 @@ namespace xdpn::dialog {
     Button* m_accept = nullptr;
     Input* m_nameInput = nullptr;
     std::string m_text;
+    PrintJob m_job;
+    std::unique_ptr<SelectDropdownPopup> m_dropdown;
     bool m_rebuild = true;
     bool m_answered = false;
   };

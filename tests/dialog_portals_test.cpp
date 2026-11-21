@@ -45,7 +45,7 @@ int main() {
     request.kind = kind;
     check(parseRequest(formatRequest(request)).kind == kind, "account and wallpaper kinds");
   }
-  check(parseAnswer(formatAnswer({.response = 0, .choices = {}, .application = {}, .text = "Renamed"})).text == "Renamed",
+  check(parseAnswer(formatAnswer({.response = 0, .choices = {}, .application = {}, .text = "Renamed", .printJob = {}})).text == "Renamed",
         "answer text");
   return failures == 0 ? 0 : 1;
 }

@@ -3,6 +3,9 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <charconv>
+#include <optional>
+#include <string_view>
 
 namespace xdpn::dialog {
 
@@ -43,7 +46,90 @@ namespace xdpn::dialog {
       return applications;
     }
 
+    json jobJson(const PrintJob& job) {
+      return {{"printer", job.printer},   {"copies", job.copies},        {"collate", job.collate},
+              {"allPages", job.allPages}, {"ranges", job.ranges},        {"media", job.media},
+              {"landscape", job.landscape}, {"sides", job.sides},        {"color", job.color},
+              {"outputPath", job.outputPath}};
+    }
+
+    bool flag(const json& object, const char* key, bool fallback) {
+      const auto it = object.find(key);
+      return it != object.end() && it->is_boolean() ? it->get<bool>() : fallback;
+    }
+
+    PrintJob jobFrom(const json& object) {
+      PrintJob job;
+      if (!object.is_object()) {
+        return job;
+      }
+      job.printer = text(object, "printer");
+      if (const auto it = object.find("copies"); it != object.end() && it->is_number_integer()) {
+        job.copies = std::clamp(it->get<int>(), 1, 999);
+      }
+      job.collate = flag(object, "collate", true);
+      job.allPages = flag(object, "allPages", true);
+      job.ranges = text(object, "ranges");
+      job.media = text(object, "media");
+      job.landscape = flag(object, "landscape", false);
+      if (auto sides = text(object, "sides"); !sides.empty()) {
+        job.sides = sides;
+      }
+      job.color = flag(object, "color", true);
+      job.outputPath = text(object, "outputPath");
+      return job;
+    }
+
+    std::vector<std::string_view> splitList(std::string_view text, char separator) {
+      std::vector<std::string_view> parts;
+      while (true) {
+        const auto at = text.find(separator);
+        parts.push_back(text.substr(0, at));
+        if (at == std::string_view::npos) {
+          return parts;
+        }
+        text.remove_prefix(at + 1);
+      }
+    }
+
+    std::optional<int> pageNumber(std::string_view text) {
+      const auto start = text.find_first_not_of(" \t");
+      if (start == std::string_view::npos) {
+        return std::nullopt;
+      }
+      text = text.substr(start, text.find_last_not_of(" \t") - start + 1);
+      int value = 0;
+      const auto [rest, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+      if (error != std::errc() || rest != text.data() + text.size()) {
+        return std::nullopt;
+      }
+      return value;
+    }
+
   } // namespace
+
+  bool validPageRanges(const std::string& ranges) {
+    if (ranges.find_first_not_of(" \t") == std::string::npos) {
+      return false;
+    }
+    for (const auto part : splitList(ranges, ',')) {
+      const auto bounds = splitList(part, '-');
+      if (bounds.size() > 2) {
+        return false;
+      }
+      const auto first = pageNumber(bounds[0]);
+      if (!first || *first < 1) {
+        return false;
+      }
+      if (bounds.size() == 2) {
+        const auto last = pageNumber(bounds[1]);
+        if (!last || *last < *first) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
 
   std::string formatRequest(const Request& request) {
     json object;
@@ -62,6 +148,9 @@ namespace xdpn::dialog {
       break;
     case Kind::Launcher:
       object["kind"] = "launcher";
+      break;
+    case Kind::Print:
+      object["kind"] = "print";
       break;
     case Kind::Invalid:
       object["kind"] = "invalid";
@@ -88,6 +177,21 @@ namespace xdpn::dialog {
     object["detail"] = request.detail;
     object["text"] = request.text;
     object["editable"] = request.editable;
+    json printers = json::array();
+    for (const auto& printer : request.printers) {
+      json media = json::array();
+      for (const auto& entry : printer.media) {
+        media.push_back({{"id", entry.id}, {"label", entry.label}});
+      }
+      printers.push_back({{"id", printer.id},
+                          {"label", printer.label},
+                          {"media", media},
+                          {"duplex", printer.duplex},
+                          {"color", printer.color},
+                          {"toFile", printer.toFile}});
+    }
+    object["printers"] = printers;
+    object["printJob"] = jobJson(request.printJob);
     return object.dump();
   }
 
@@ -108,6 +212,8 @@ namespace xdpn::dialog {
       request.kind = Kind::Wallpaper;
     } else if (kind == "launcher") {
       request.kind = Kind::Launcher;
+    } else if (kind == "print") {
+      request.kind = Kind::Print;
     } else {
       return request;
     }
@@ -121,8 +227,30 @@ namespace xdpn::dialog {
     request.image = text(object, "image");
     request.detail = text(object, "detail");
     request.text = text(object, "text");
-    if (const auto it = object.find("editable"); it != object.end() && it->is_boolean()) {
-      request.editable = it->get<bool>();
+    request.editable = flag(object, "editable", false);
+    if (const auto it = object.find("printers"); it != object.end() && it->is_array()) {
+      for (const auto& item : *it) {
+        if (!item.is_object() || text(item, "id").empty()) {
+          continue;
+        }
+        PrintPrinter printer{.id = text(item, "id"),
+                             .label = text(item, "label"),
+                             .media = {},
+                             .duplex = flag(item, "duplex", false),
+                             .color = flag(item, "color", false),
+                             .toFile = flag(item, "toFile", false)};
+        if (const auto media = item.find("media"); media != item.end() && media->is_array()) {
+          for (const auto& entry : *media) {
+            if (entry.is_object() && !text(entry, "id").empty()) {
+              printer.media.push_back({.id = text(entry, "id"), .label = text(entry, "label")});
+            }
+          }
+        }
+        request.printers.push_back(std::move(printer));
+      }
+    }
+    if (const auto it = object.find("printJob"); it != object.end()) {
+      request.printJob = jobFrom(*it);
     }
     if (const auto it = object.find("choices"); it != object.end() && it->is_array()) {
       for (const auto& item : *it) {
@@ -171,11 +299,14 @@ namespace xdpn::dialog {
     if (!answer.text.empty()) {
       object["text"] = answer.text;
     }
+    if (!answer.printJob.printer.empty()) {
+      object["printJob"] = jobJson(answer.printJob);
+    }
     return object.dump();
   }
 
   Answer parseAnswer(const std::string& line) {
-    Answer answer{.response = 2, .choices = {}, .application = {}, .text = {}};
+    Answer answer{.response = 2, .choices = {}, .application = {}, .text = {}, .printJob = {}};
     const json object = json::parse(line, nullptr, false);
     if (!object.is_object()) {
       return answer;
@@ -192,6 +323,9 @@ namespace xdpn::dialog {
     }
     answer.application = text(object, "application");
     answer.text = text(object, "text");
+    if (const auto it = object.find("printJob"); it != object.end()) {
+      answer.printJob = jobFrom(*it);
+    }
     return answer;
   }
 

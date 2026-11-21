@@ -14,6 +14,7 @@ glib_dep = dependency('glib-2.0', version: '>=2.76')
 gio_dep = dependency('gio-2.0', version: '>=2.76')
 gio_unix_dep = dependency('gio-unix-2.0', version: '>=2.76')
 nlohmann_json_dep = dependency('nlohmann_json')
+cups_dep = dependency('cups', required: get_option('print'))
 
 if get_option('dialog')
   # Recent GLib headers use __COUNTER__, a C2y extension clang warns about under lib/'s -Wpedantic. lib/ adds
@@ -34,8 +35,17 @@ endif
 libexecdir = get_option('prefix') / get_option('libexecdir')
 assetsdir = get_option('prefix') / get_option('datadir') / meson.project_name() / 'assets'
 
+core_sources = []
+core_dependencies = [glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep]
+core_args = ['-DXDPN_DIALOG_PATH="@0@"'.format(libexecdir / 'noctalia-portal-dialog')]
+if get_option('print')
+  core_sources += files('src/print/cups_printers.cpp', 'src/print/print.cpp', 'src/print/print_settings.cpp')
+  core_dependencies += cups_dep
+  core_args += '-DXDPN_HAVE_PRINT'
+endif
+
 core = static_library('xdpn-core',
-  files(
+  core_sources + files(
     'src/access/access.cpp',
     'src/account/account.cpp',
     'src/appchooser/appchooser.cpp',
@@ -54,12 +64,13 @@ core = static_library('xdpn-core',
     'src/wallpaper/wallpaper.cpp',
   ),
   include_directories: include_directories('src'),
-  cpp_args: ['-DXDPN_DIALOG_PATH="@0@"'.format(libexecdir / 'noctalia-portal-dialog')],
-  dependencies: [glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep],
+  cpp_args: core_args,
+  dependencies: core_dependencies,
 )
 
 executable('xdg-desktop-portal-noctalia',
   files('src/main.cpp'),
+  cpp_args: core_args,
   include_directories: include_directories('src'),
   link_with: core,
   dependencies: [glib_dep, gio_dep, gio_unix_dep],
@@ -98,8 +109,19 @@ endif
 data_conf = configuration_data()
 data_conf.set('libexecdir', libexecdir)
 
-install_data('data/noctalia.portal',
-  install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals')
+portal_interfaces = ['Settings', 'Inhibit', 'Access', 'AppChooser', 'Lockdown', 'Email', 'Notification', 'Account',
+                     'Wallpaper', 'DynamicLauncher']
+if get_option('print')
+  portal_interfaces += 'Print'
+endif
+portal_conf = configuration_data()
+portal_conf.set('INTERFACES', 'org.freedesktop.impl.portal.' + ';org.freedesktop.impl.portal.'.join(portal_interfaces) + ';')
+configure_file(
+  input: 'data/noctalia.portal.in',
+  output: 'noctalia.portal',
+  configuration: portal_conf,
+  install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
+)
 
 configure_file(
   input: 'data/org.freedesktop.impl.portal.desktop.noctalia.service.in',
@@ -152,6 +174,14 @@ if get_option('tests')
     link_with: core,
     dependencies: [glib_dep, gio_dep, gio_unix_dep, nlohmann_json_dep],
   ))
+  if get_option('print')
+    test('print-settings', executable('print-settings-test',
+      files('tests/print_settings_test.cpp'),
+      include_directories: include_directories('src'),
+      link_with: core,
+      dependencies: core_dependencies,
+    ))
+  endif
   test('inhibit', executable('inhibit-test',
     files('tests/inhibit_test.cpp'),
     include_directories: include_directories('src'),

@@ -1,2 +1,3 @@
 option('dialog', type: 'boolean', value: true, description: 'Build the dialog helper (Access, AppChooser)')
 option('tests', type: 'boolean', value: true, description: 'Build the unit tests')
+option('print', type: 'boolean', value: true, description: 'Build the Print portal (needs CUPS)')

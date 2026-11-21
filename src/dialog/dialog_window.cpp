@@ -7,6 +7,7 @@
 #include "ui/builders.h"
 #include "ui/controls/image.h"
 #include "ui/controls/input.h"
+#include "ui/controls/select_dropdown_popup.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -63,6 +64,8 @@ namespace xdpn::dialog {
       case Kind::Launcher:
         return {kAccessWidth, request.detail.empty() ? 240U : 270U, "app-window", 48.0F, "Create Launcher", "Cancel",
                 "Create"};
+      case Kind::Print:
+        return {480, 500, "printer", 28.0F, "Print", "Cancel", "Print"};
       case Kind::Access:
       case Kind::Invalid:
         break;
@@ -90,6 +93,10 @@ namespace xdpn::dialog {
     }
 
     m_text = m_request.text;
+    m_job = m_request.printJob;
+    if (m_request.kind == Kind::Print) {
+      m_dropdown = std::make_unique<SelectDropdownPopup>(connection, renderer);
+    }
     const Look look = lookFor(m_request);
     const std::uint32_t width = look.width;
     const std::uint32_t height = look.height;
@@ -190,6 +197,9 @@ namespace xdpn::dialog {
     case Kind::Launcher:
       buildDetails(*root);
       break;
+    case Kind::Print:
+      buildPrint(*root);
+      break;
     case Kind::Access:
     case Kind::Invalid:
       buildAccess(*root);
@@ -210,12 +220,15 @@ namespace xdpn::dialog {
                                   .onClick = [this] { accept(); }}));
     if (chooser) {
       m_accept->setEnabled(!m_selected.empty());
-    } else if (m_request.kind == Kind::Launcher) {
-      m_accept->setEnabled(!m_text.empty());
     }
     root->addChild(std::move(buttons));
 
     m_root = std::move(root);
+    if (m_dropdown) {
+      m_dropdown->setParent(m_surface.xdgSurface(), m_surface.wlSurface(), m_connection.outputForSurface(m_surface.wlSurface()));
+      m_root->setPopupContext(m_dropdown.get());
+    }
+    updateAcceptState();
     m_surface.setSceneRoot(m_root.get());
     m_dispatcher.setSceneRoot(m_root.get());
     m_dispatcher.setFocus(m_nameInput != nullptr ? m_nameInput->inputArea() : m_accept->inputArea());
@@ -299,9 +312,7 @@ namespace xdpn::dialog {
                                     .controlHeight = Style::controlHeight,
                                     .onChange = [this](const std::string& value) {
                                       m_text = value;
-                                      if (m_accept != nullptr) {
-                                        m_accept->setEnabled(!m_text.empty());
-                                      }
+                                      updateAcceptState();
                                       requestUpdate();
                                     },
                                     .onSubmit = [this](const std::string&) { accept(); }}));
@@ -340,6 +351,179 @@ namespace xdpn::dialog {
       frame->addChild(std::move(preview));
     }
     content.addChild(std::move(frame));
+  }
+
+  const PrintPrinter* DialogWindow::currentPrinter() const {
+    for (const auto& printer : m_request.printers) {
+      if (printer.id == m_job.printer) {
+        return &printer;
+      }
+    }
+    return m_request.printers.empty() ? nullptr : &m_request.printers.front();
+  }
+
+  void DialogWindow::choosePrinter(std::size_t index) {
+    if (index >= m_request.printers.size()) {
+      return;
+    }
+    const auto& printer = m_request.printers[index];
+    m_job.printer = printer.id;
+    const bool hasMedia = std::ranges::any_of(printer.media, [this](const PrintMedia& media) { return media.id == m_job.media; });
+    if (!hasMedia && !printer.media.empty()) {
+      m_job.media = printer.media.front().id;
+    }
+    if (!printer.duplex) {
+      m_job.sides = "one-sided";
+    }
+    m_rebuild = true;
+    requestUpdate();
+  }
+
+  void DialogWindow::updateAcceptState() {
+    if (m_accept == nullptr) {
+      return;
+    }
+    switch (m_request.kind) {
+    case Kind::AppChooser:
+      m_accept->setEnabled(!m_selected.empty());
+      break;
+    case Kind::Launcher:
+      m_accept->setEnabled(!m_text.empty());
+      break;
+    case Kind::Print: {
+      const PrintPrinter* printer = currentPrinter();
+      const bool pagesOk = m_job.allPages || validPageRanges(m_job.ranges);
+      const bool fileOk = printer == nullptr || !printer->toFile || !m_job.outputPath.empty();
+      m_accept->setEnabled(printer != nullptr && pagesOk && fileOk);
+      break;
+    }
+    default:
+      break;
+    }
+  }
+
+  void DialogWindow::buildPrint(Flex& content) {
+    const PrintPrinter* printer = currentPrinter();
+    if (printer == nullptr) {
+      content.addChild(ui::label({.text = "No printers found.", .fontSize = Style::fontSizeBody,
+                                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant), .configure = literal}));
+      content.addChild(ui::spacer());
+      return;
+    }
+    m_job.printer = printer->id;
+    auto row = [&content](const char* caption, std::unique_ptr<Node> control) {
+      auto line = ui::row({.align = FlexAlign::Center, .gap = Style::spaceMd});
+      line->addChild(ui::label({.text = caption,
+                                .fontSize = Style::fontSizeBody,
+                                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                                .minWidth = 100.0F,
+                                .maxWidth = 100.0F,
+                                .configure = literal}));
+      control->setFlexGrow(1.0F);
+      line->addChild(std::move(control));
+      content.addChild(std::move(line));
+    };
+
+    std::vector<std::string> printerLabels;
+    std::size_t printerIndex = 0;
+    for (std::size_t i = 0; i < m_request.printers.size(); ++i) {
+      printerLabels.push_back(m_request.printers[i].label);
+      if (m_request.printers[i].id == printer->id) {
+        printerIndex = i;
+      }
+    }
+    row("Printer", ui::select({.options = printerLabels,
+                               .selectedIndex = printerIndex,
+                               .controlHeight = Style::controlHeightSm,
+                               .onSelectionChanged = [this](std::size_t index, std::string_view) { choosePrinter(index); }}));
+    if (printer->toFile) {
+      row("File", ui::input({.value = m_job.outputPath,
+                             .placeholder = std::string("Path of the PDF"),
+                             .controlHeight = Style::controlHeightSm,
+                             .onChange = [this](const std::string& value) {
+                               m_job.outputPath = value;
+                               updateAcceptState();
+                             }}));
+    }
+
+    auto copies = ui::row({.align = FlexAlign::Center, .gap = Style::spaceMd});
+    copies->addChild(ui::stepper({.minValue = 1,
+                                  .maxValue = 999,
+                                  .value = m_job.copies,
+                                  .onValueChanged = [this](int value) { m_job.copies = value; }}));
+    copies->addChild(ui::checkbox({.checked = m_job.collate, .onChange = [this](bool checked) { m_job.collate = checked; }}));
+    copies->addChild(ui::label({.text = "Collate", .fontSize = Style::fontSizeBody,
+                                .color = colorSpecFromRole(ColorRole::OnSurface), .configure = literal}));
+    row("Copies", std::move(copies));
+
+    auto pages = ui::row({.align = FlexAlign::Center, .gap = Style::spaceMd});
+    pages->addChild(ui::segmented({.options = std::vector<ui::SegmentedOption>{{.label = "All", .glyph = {}, .tooltip = {}},
+                                                                               {.label = "Range", .glyph = {}, .tooltip = {}}},
+                                   .selectedIndex = m_job.allPages ? 0U : 1U,
+                                   .onChange = [this](std::size_t index) {
+                                     m_job.allPages = index == 0;
+                                     m_rebuild = true;
+                                     requestUpdate();
+                                   }}));
+    if (!m_job.allPages) {
+      pages->addChild(ui::input({.value = m_job.ranges,
+                                 .placeholder = std::string("1-3, 5"),
+                                 .controlHeight = Style::controlHeightSm,
+                                 .flexGrow = 1.0F,
+                                 .onChange = [this](const std::string& value) {
+                                   m_job.ranges = value;
+                                   updateAcceptState();
+                                 }}));
+    }
+    row("Pages", std::move(pages));
+
+    std::vector<std::string> mediaLabels;
+    std::size_t mediaIndex = 0;
+    for (std::size_t i = 0; i < printer->media.size(); ++i) {
+      mediaLabels.push_back(printer->media[i].label);
+      if (printer->media[i].id == m_job.media) {
+        mediaIndex = i;
+      }
+    }
+    if (!printer->media.empty()) {
+      m_job.media = printer->media[mediaIndex].id;
+      row("Paper", ui::select({.options = mediaLabels,
+                               .selectedIndex = mediaIndex,
+                               .controlHeight = Style::controlHeightSm,
+                               .onSelectionChanged = [this, printer](std::size_t index, std::string_view) {
+                                 if (index < printer->media.size()) {
+                                   m_job.media = printer->media[index].id;
+                                 }
+                               }}));
+    }
+    row("Orientation",
+        ui::segmented({.options = std::vector<ui::SegmentedOption>{{.label = "Portrait", .glyph = {}, .tooltip = {}},
+                                                                   {.label = "Landscape", .glyph = {}, .tooltip = {}}},
+                       .selectedIndex = m_job.landscape ? 1U : 0U,
+                       .onChange = [this](std::size_t index) { m_job.landscape = index == 1; }}));
+    if (printer->duplex) {
+      static const std::vector<std::string> kSides = {"one-sided", "two-sided-long-edge", "two-sided-short-edge"};
+      std::size_t sidesIndex = 0;
+      for (std::size_t i = 0; i < kSides.size(); ++i) {
+        if (kSides[i] == m_job.sides) {
+          sidesIndex = i;
+        }
+      }
+      row("Two-sided", ui::select({.options = std::vector<std::string>{"Off", "Long edge", "Short edge"},
+                                   .selectedIndex = sidesIndex,
+                                   .controlHeight = Style::controlHeightSm,
+                                   .onSelectionChanged = [this](std::size_t index, std::string_view) {
+                                     if (index < kSides.size()) {
+                                       m_job.sides = kSides[index];
+                                     }
+                                   }}));
+    }
+    if (printer->color) {
+      auto color = ui::row({.align = FlexAlign::Center, .gap = Style::spaceMd});
+      color->addChild(ui::toggle({.checked = m_job.color, .onChange = [this](bool checked) { m_job.color = checked; }}));
+      row("Colour", std::move(color));
+    }
+    content.addChild(ui::spacer());
   }
 
   void DialogWindow::buildChooser(Flex& content, Renderer& renderer) {
@@ -404,7 +588,7 @@ namespace xdpn::dialog {
   }
 
   void DialogWindow::accept() {
-    Answer result{.response = 0, .choices = {}, .application = {}, .text = {}};
+    Answer result{.response = 0, .choices = {}, .application = {}, .text = {}, .printJob = {}};
     if (m_request.kind == Kind::AppChooser) {
       if (m_selected.empty()) {
         return;
@@ -415,6 +599,11 @@ namespace xdpn::dialog {
         return;
       }
       result.text = m_text;
+    } else if (m_request.kind == Kind::Print) {
+      if (currentPrinter() == nullptr || (!m_job.allPages && !validPageRanges(m_job.ranges))) {
+        return;
+      }
+      result.printJob = m_job;
     } else {
       for (const auto& state : m_choices) {
         result.choices[state.choice.id] = state.value;
@@ -423,7 +612,7 @@ namespace xdpn::dialog {
     answer(std::move(result));
   }
 
-  void DialogWindow::cancel() { answer({.response = 1, .choices = {}, .application = {}, .text = {}}); }
+  void DialogWindow::cancel() { answer({.response = 1, .choices = {}, .application = {}, .text = {}, .printJob = {}}); }
 
   void DialogWindow::answer(Answer result) {
     if (m_answered) {
@@ -436,6 +625,10 @@ namespace xdpn::dialog {
   }
 
   void DialogWindow::closeSurface() {
+    if (m_dropdown) {
+      m_dropdown->closeSelectDropdown();
+      m_dropdown.reset();
+    }
     m_dispatcher.setSceneRoot(nullptr);
     m_surface.setSceneRoot(nullptr);
     m_surface.setClosedCallback({});
@@ -443,6 +636,11 @@ namespace xdpn::dialog {
   }
 
   void DialogWindow::keyboard(const KeyboardEvent& event) {
+    if (m_dropdown && m_dropdown->isSelectDropdownOpen()) {
+      m_dropdown->onKeyboardEvent(event);
+      requestUpdate();
+      return;
+    }
     if (event.pressed && !event.preedit && KeySymbol::isEscape(event.sym)) {
       cancel();
       return;
@@ -452,6 +650,18 @@ namespace xdpn::dialog {
   }
 
   void DialogWindow::pointer(const PointerEvent& event) {
+    if (m_dropdown && m_dropdown->isSelectDropdownOpen()) {
+      if (event.surface == m_dropdown->wlSurface()) {
+        (void)m_dropdown->onPointerEvent(event);
+        requestUpdate();
+        return;
+      }
+      if (event.type == PointerEvent::Type::Button && event.pressed) {
+        m_dropdown->closeSelectDropdown();
+        requestUpdate();
+        return;
+      }
+    }
     if (event.surface != m_surface.wlSurface()) {
       return;
     }

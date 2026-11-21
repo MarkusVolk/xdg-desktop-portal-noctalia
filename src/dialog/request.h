@@ -30,7 +30,37 @@ namespace xdpn::dialog {
     std::string icon;
   };
 
-  enum class Kind { Invalid, Access, AppChooser, Account, Wallpaper, Launcher };
+  struct PrintMedia {
+    std::string id;
+    std::string label;
+  };
+
+  struct PrintPrinter {
+    std::string id;
+    std::string label;
+    std::vector<PrintMedia> media;
+    bool duplex = false;
+    bool color = false;
+    // The virtual printer that writes a PDF file.
+    bool toFile = false;
+  };
+
+  // The settings of a print job; page ranges are 1-based as the user writes them ("1-3,5").
+  struct PrintJob {
+    std::string printer;
+    int copies = 1;
+    bool collate = true;
+    bool allPages = true;
+    std::string ranges;
+    std::string media;
+    bool landscape = false;
+    // "one-sided", "two-sided-long-edge" or "two-sided-short-edge".
+    std::string sides = "one-sided";
+    bool color = true;
+    std::string outputPath;
+  };
+
+  enum class Kind { Invalid, Access, AppChooser, Account, Wallpaper, Launcher, Print };
 
   struct Request {
     Kind kind = Kind::Invalid;
@@ -51,6 +81,8 @@ namespace xdpn::dialog {
     // An editable value (a launcher's name) when `editable`, else shown as text.
     std::string text;
     bool editable = false;
+    std::vector<PrintPrinter> printers;
+    PrintJob printJob;
   };
 
   struct Answer {
@@ -59,7 +91,11 @@ namespace xdpn::dialog {
     std::map<std::string, std::string> choices;
     std::string application;
     std::string text;
+    PrintJob printJob;
   };
+
+  // Page ranges as the user writes them: "1-3,5", ascending, from page 1.
+  [[nodiscard]] bool validPageRanges(const std::string& ranges);
 
   std::string formatRequest(const Request& request);
   // A line the dialog cannot read yields a request of Kind::Invalid.

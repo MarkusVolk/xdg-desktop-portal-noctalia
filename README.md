@@ -24,6 +24,8 @@ Implemented interfaces:
   `$XDG_DATA_HOME/xdg-desktop-portal-noctalia/wallpapers`.
 - `org.freedesktop.impl.portal.DynamicLauncher`: confirms and names launchers and web app
   launchers; no application gets install tokens without asking.
+- `org.freedesktop.impl.portal.Print`: the print dialog over the CUPS printers and a Print to
+  File printer; settings and page setup go back in the GtkPrintSettings format.
 
 Dialogs run in `noctalia-portal-dialog`, one process per dialog, so the daemon itself has no
 Wayland connection. Their colours come from a Noctalia template; add to
@@ -35,7 +37,7 @@ input_path = "/usr/share/xdg-desktop-portal-noctalia/templates/colors.toml"
 output_path = "$XDG_CONFIG_HOME/xdg-desktop-portal-noctalia/colors.toml"
 ```
 
-Printing and file choosing are left to other backends (xdg-desktop-portal-gtk, Luciole).
+File choosing is left to another backend, such as Luciole's.
 
 ## Building
 
@@ -48,7 +50,7 @@ meson test -C build
 Dependencies: GLib/GIO ≥ 2.76, nlohmann-json; for the dialog helper (`-Ddialog=true`, the
 default) also what Noctalia's lib/ needs: wayland, EGL/GLES 2, freetype, fontconfig, cairo, pango,
 harfbuzz, xkbcommon, stb, tomlplusplus, and for the codec pack (application icons) librsvg,
-libwebp and libjxl.
+libwebp and libjxl; for the Print portal (`-Dprint=true`, the default) CUPS.
 
 ## Using it
 
@@ -57,5 +59,6 @@ List `noctalia` in the desktop's `portals.conf`, for example
 
 ```ini
 [preferred]
-default=umbriel;noctalia;gtk
+default=umbriel;noctalia
+org.freedesktop.impl.portal.FileChooser=luciole
 ```
