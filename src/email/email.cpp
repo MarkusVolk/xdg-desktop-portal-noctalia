@@ -1,6 +1,7 @@
 #include "email/email.h"
 
 #include "dbus/introspection.h"
+#include "dbus/options.h"
 
 #include <cstdio>
 #include <print>
@@ -67,10 +68,6 @@ namespace xdpn {
       return out;
     }
 
-    std::string lookupString(GVariant* options, const char* key) {
-      const char* value = nullptr;
-      return g_variant_lookup(options, key, "&s", &value) ? std::string(value) : std::string();
-    }
 
   } // namespace
 

@@ -13,6 +13,7 @@ class AnimationManager;
 class Button;
 class Checkbox;
 class Flex;
+class Input;
 class Node;
 class RadioButton;
 class RenderContext;
@@ -54,6 +55,8 @@ namespace xdpn::dialog {
     void build(Renderer& renderer);
     void buildAccess(Flex& content);
     void buildChooser(Flex& content, Renderer& renderer);
+    void buildDetails(Flex& content);
+    void buildWallpaper(Flex& content, Renderer& renderer);
     std::unique_ptr<Node> icon(Renderer& renderer, const std::string& path, float size, const char* glyph);
     void select(const std::string& application);
     void accept();
@@ -72,6 +75,8 @@ namespace xdpn::dialog {
     std::vector<std::pair<std::string, Button*>> m_applicationButtons;
     std::string m_selected;
     Button* m_accept = nullptr;
+    Input* m_nameInput = nullptr;
+    std::string m_text;
     bool m_rebuild = true;
     bool m_answered = false;
   };

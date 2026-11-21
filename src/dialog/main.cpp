@@ -206,7 +206,7 @@ int main() {
   const auto request = line ? xdpn::dialog::parseRequest(*line) : xdpn::dialog::Request{};
   if (request.kind == xdpn::dialog::Kind::Invalid) {
     std::println(stderr, "noctalia-portal-dialog: no valid request on stdin");
-    writeAnswer({.response = 2, .choices = {}, .application = {}});
+    writeAnswer({.response = 2, .choices = {}, .application = {}, .text = {}});
     return EXIT_FAILURE;
   }
 
@@ -217,7 +217,7 @@ int main() {
     run(request);
   } catch (const std::exception& error) {
     std::println(stderr, "noctalia-portal-dialog: {}", error.what());
-    writeAnswer({.response = 2, .choices = {}, .application = {}});
+    writeAnswer({.response = 2, .choices = {}, .application = {}, .text = {}});
     status = EXIT_FAILURE;
   }
   std::signal(SIGTERM, previousTerm);

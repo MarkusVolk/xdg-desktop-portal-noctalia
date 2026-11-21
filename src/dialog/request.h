@@ -30,7 +30,7 @@ namespace xdpn::dialog {
     std::string icon;
   };
 
-  enum class Kind { Invalid, Access, AppChooser };
+  enum class Kind { Invalid, Access, AppChooser, Account, Wallpaper, Launcher };
 
   struct Request {
     Kind kind = Kind::Invalid;
@@ -44,6 +44,13 @@ namespace xdpn::dialog {
     std::vector<Choice> choices;
     std::vector<Application> applications;
     std::string lastChoice;
+    // A large picture: the wallpaper preview, the account avatar.
+    std::string image;
+    // A line of detail below the body, such as a launcher's web address.
+    std::string detail;
+    // An editable value (a launcher's name) when `editable`, else shown as text.
+    std::string text;
+    bool editable = false;
   };
 
   struct Answer {
@@ -51,6 +58,7 @@ namespace xdpn::dialog {
     unsigned response = 1;
     std::map<std::string, std::string> choices;
     std::string application;
+    std::string text;
   };
 
   std::string formatRequest(const Request& request);

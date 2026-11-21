@@ -1,9 +1,8 @@
 #include "notification/notification.h"
 
 #include "dbus/introspection.h"
+#include "dbus/options.h"
 #include "icons/icon_lookup.h"
-
-#include <gio/gdesktopappinfo.h>
 
 #include <charconv>
 #include <cstdio>
@@ -19,23 +18,7 @@ namespace xdpn {
 
     std::string key(const std::string& appId, const std::string& id) { return appId + '\n' + id; }
 
-    std::string lookupString(GVariant* dict, const char* name) {
-      const char* value = nullptr;
-      return g_variant_lookup(dict, name, "&s", &value) ? std::string(value) : std::string();
-    }
 
-    std::string applicationName(const std::string& appId) {
-      if (appId.empty()) {
-        return {};
-      }
-      GDesktopAppInfo* info = g_desktop_app_info_new((appId + ".desktop").c_str());
-      if (info == nullptr) {
-        return appId;
-      }
-      std::string name = g_app_info_get_display_name(G_APP_INFO(info));
-      g_object_unref(info);
-      return name;
-    }
 
     // The serialized portal icon to a name or path the server understands.
     std::string iconFor(GVariant* notification, const std::string& appId) {
@@ -203,7 +186,7 @@ namespace xdpn {
       g_variant_builder_add(&hints, "{sv}", "desktop-entry", g_variant_new_string(entry->appId.c_str()));
     }
 
-    const auto appName = applicationName(entry->appId);
+    const auto appName = applicationName(entry->appId, "");
     const auto icon = iconFor(notification, entry->appId);
     const auto title = lookupString(notification, "title");
     const auto body = lookupString(notification, "body");

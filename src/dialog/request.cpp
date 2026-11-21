@@ -54,6 +54,15 @@ namespace xdpn::dialog {
     case Kind::AppChooser:
       object["kind"] = "appchooser";
       break;
+    case Kind::Account:
+      object["kind"] = "account";
+      break;
+    case Kind::Wallpaper:
+      object["kind"] = "wallpaper";
+      break;
+    case Kind::Launcher:
+      object["kind"] = "launcher";
+      break;
     case Kind::Invalid:
       object["kind"] = "invalid";
       break;
@@ -75,6 +84,10 @@ namespace xdpn::dialog {
     object["choices"] = choices;
     object["applications"] = applicationsJson(request.applications);
     object["lastChoice"] = request.lastChoice;
+    object["image"] = request.image;
+    object["detail"] = request.detail;
+    object["text"] = request.text;
+    object["editable"] = request.editable;
     return object.dump();
   }
 
@@ -89,6 +102,12 @@ namespace xdpn::dialog {
       request.kind = Kind::Access;
     } else if (kind == "appchooser") {
       request.kind = Kind::AppChooser;
+    } else if (kind == "account") {
+      request.kind = Kind::Account;
+    } else if (kind == "wallpaper") {
+      request.kind = Kind::Wallpaper;
+    } else if (kind == "launcher") {
+      request.kind = Kind::Launcher;
     } else {
       return request;
     }
@@ -99,6 +118,12 @@ namespace xdpn::dialog {
     request.denyLabel = text(object, "denyLabel");
     request.grantLabel = text(object, "grantLabel");
     request.lastChoice = text(object, "lastChoice");
+    request.image = text(object, "image");
+    request.detail = text(object, "detail");
+    request.text = text(object, "text");
+    if (const auto it = object.find("editable"); it != object.end() && it->is_boolean()) {
+      request.editable = it->get<bool>();
+    }
     if (const auto it = object.find("choices"); it != object.end() && it->is_array()) {
       for (const auto& item : *it) {
         if (!item.is_object()) {
@@ -143,11 +168,14 @@ namespace xdpn::dialog {
     if (!answer.application.empty()) {
       object["application"] = answer.application;
     }
+    if (!answer.text.empty()) {
+      object["text"] = answer.text;
+    }
     return object.dump();
   }
 
   Answer parseAnswer(const std::string& line) {
-    Answer answer{.response = 2, .choices = {}, .application = {}};
+    Answer answer{.response = 2, .choices = {}, .application = {}, .text = {}};
     const json object = json::parse(line, nullptr, false);
     if (!object.is_object()) {
       return answer;
@@ -163,6 +191,7 @@ namespace xdpn::dialog {
       }
     }
     answer.application = text(object, "application");
+    answer.text = text(object, "text");
     return answer;
   }
 

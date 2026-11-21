@@ -1,10 +1,13 @@
 #include "access/access.h"
+#include "account/account.h"
 #include "appchooser/appchooser.h"
 #include "email/email.h"
 #include "inhibit/inhibit.h"
+#include "launcher/launcher.h"
 #include "lockdown/lockdown.h"
 #include "notification/notification.h"
 #include "settings/settings.h"
+#include "wallpaper/wallpaper.h"
 
 #include <gio/gio.h>
 #include <glib-unix.h>
@@ -28,6 +31,9 @@ namespace {
     std::unique_ptr<xdpn::Lockdown> lockdown;
     std::unique_ptr<xdpn::Email> email;
     std::unique_ptr<xdpn::Notification> notification;
+    std::unique_ptr<xdpn::Account> account;
+    std::unique_ptr<xdpn::Wallpaper> wallpaper;
+    std::unique_ptr<xdpn::DynamicLauncher> launcher;
     int status = 0;
   };
 
@@ -67,6 +73,9 @@ int main(int argc, char** argv) {
         self->lockdown = std::make_unique<xdpn::Lockdown>(connection);
         self->email = std::make_unique<xdpn::Email>(connection);
         self->notification = std::make_unique<xdpn::Notification>(connection);
+        self->account = std::make_unique<xdpn::Account>(connection);
+        self->wallpaper = std::make_unique<xdpn::Wallpaper>(connection);
+        self->launcher = std::make_unique<xdpn::DynamicLauncher>(connection);
       },
       nullptr,
       +[](GDBusConnection* connection, const char* name, gpointer data) {
@@ -84,6 +93,9 @@ int main(int argc, char** argv) {
 
   g_main_loop_run(daemon.loop);
 
+  daemon.launcher.reset();
+  daemon.wallpaper.reset();
+  daemon.account.reset();
   daemon.notification.reset();
   daemon.email.reset();
   daemon.lockdown.reset();

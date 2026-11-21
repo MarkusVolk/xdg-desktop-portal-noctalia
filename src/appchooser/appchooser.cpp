@@ -1,6 +1,7 @@
 #include "appchooser/appchooser.h"
 
 #include "dbus/introspection.h"
+#include "dbus/options.h"
 #include "icons/icon_lookup.h"
 
 #include <gio/gdesktopappinfo.h>
@@ -22,10 +23,6 @@ namespace xdpn {
       return out;
     }
 
-    std::string lookupString(GVariant* options, const char* key) {
-      const char* value = nullptr;
-      return g_variant_lookup(options, key, "&s", &value) ? std::string(value) : std::string();
-    }
 
     // What is being opened, for the subtitle: the file name, else the URI, else the content type.
     std::string subject(GVariant* options) {
@@ -71,7 +68,7 @@ namespace xdpn {
 
   } // namespace appchooser
 
-  AppChooser::AppChooser(GDBusConnection* connection) : m_connection(G_DBUS_CONNECTION(g_object_ref(connection))) {
+  AppChooser::AppChooser(GDBusConnection* connection) : m_calls(connection) {
     m_interface = std::make_unique<dbus::Interface>(
         connection, dbus::kPortalPath, introspection::kAppChooser,
         [this](const std::string& method, GVariant* parameters, GDBusMethodInvocation* invocation) {
@@ -86,16 +83,7 @@ namespace xdpn {
         });
   }
 
-  AppChooser::~AppChooser() {
-    m_interface.reset();
-    for (auto& [handle, call] : m_calls) {
-      (void)handle;
-      g_dbus_method_invocation_return_value(call->invocation, g_variant_new("(u@a{sv})", dbus::Other,
-                                                                            g_variant_new_array(G_VARIANT_TYPE("{sv}"), nullptr, 0)));
-    }
-    m_calls.clear();
-    g_object_unref(m_connection);
-  }
+  AppChooser::~AppChooser() { m_interface.reset(); }
 
   void AppChooser::chooseApplication(GVariant* parameters, GDBusMethodInvocation* invocation) {
     const char* handle = nullptr;
@@ -114,54 +102,31 @@ namespace xdpn {
     g_variant_unref(choices);
     g_variant_unref(options);
 
-    const std::string key = handle;
-    auto call = std::make_unique<Call>();
-    call->invocation = invocation;
-    call->request = std::make_unique<dbus::Request>(m_connection, key, [this, key] {
-      if (auto it = m_calls.find(key); it != m_calls.end() && it->second->dialog) {
-        it->second->dialog->cancel();
+    m_calls.start(handle, invocation, request, [](GDBusMethodInvocation* call, const dialog::Answer& answer) {
+      GVariantBuilder results;
+      g_variant_builder_init(&results, G_VARIANT_TYPE_VARDICT);
+      guint32 response = answer.response;
+      if (response == dbus::Success) {
+        if (answer.application.empty()) {
+          response = dbus::Other;
+        } else {
+          g_variant_builder_add(&results, "{sv}", "choice", g_variant_new_string(answer.application.c_str()));
+        }
       }
+      g_dbus_method_invocation_return_value(call, g_variant_new("(ua{sv})", response, &results));
     });
-    Call* raw = call.get();
-    m_calls[key] = std::move(call);
-    raw->dialog = std::make_unique<DialogProcess>(request, [this, key](const dialog::Answer& answer) { complete(key, answer); });
-    if (!raw->dialog->started()) {
-      complete(key, {.response = dbus::Other, .choices = {}, .application = {}});
-    }
   }
 
   void AppChooser::updateChoices(GVariant* parameters, GDBusMethodInvocation* invocation) {
     const char* handle = nullptr;
     GVariant* choices = nullptr;
     g_variant_get(parameters, "(&o@as)", &handle, &choices);
-    if (auto it = m_calls.find(handle); it != m_calls.end() && it->second->dialog) {
-      it->second->dialog->send(dialog::formatApplications(appchooser::applications(stringArray(choices))));
+    if (DialogProcess* process = m_calls.dialog(handle); process != nullptr) {
+      process->send(dialog::formatApplications(appchooser::applications(stringArray(choices))));
     }
     g_variant_unref(choices);
     g_dbus_method_invocation_return_value(invocation, nullptr);
   }
 
-  void AppChooser::complete(const std::string& handle, const dialog::Answer& answer) {
-    auto it = m_calls.find(handle);
-    if (it == m_calls.end()) {
-      return;
-    }
-    GVariantBuilder results;
-    g_variant_builder_init(&results, G_VARIANT_TYPE_VARDICT);
-    guint32 response = answer.response;
-    if (response == dbus::Success) {
-      if (answer.application.empty()) {
-        response = dbus::Other;
-      } else {
-        g_variant_builder_add(&results, "{sv}", "choice", g_variant_new_string(answer.application.c_str()));
-      }
-    }
-    g_dbus_method_invocation_return_value(it->second->invocation, g_variant_new("(ua{sv})", response, &results));
-    auto call = std::move(it->second);
-    m_calls.erase(it);
-    g_idle_add_full(
-        G_PRIORITY_DEFAULT_IDLE, +[](gpointer) -> gboolean { return G_SOURCE_REMOVE; }, call.release(),
-        +[](gpointer data) { delete static_cast<Call*>(data); });
-  }
 
 } // namespace xdpn

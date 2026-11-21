@@ -41,7 +41,7 @@ int main() {
   check(update && update->size() == 1, "application update");
   check(!parseApplications(R"({"kind":"access"})"), "no update without applications");
 
-  const auto answer = parseAnswer(formatAnswer({.response = 0, .choices = {{"remember", "false"}}, .application = {}}));
+  const auto answer = parseAnswer(formatAnswer({.response = 0, .choices = {{"remember", "false"}}, .application = {}, .text = {}}));
   check(answer.response == 0 && answer.choices.at("remember") == "false", "answer round trip");
   check(parseAnswer("").response == 2, "empty answer is response 2");
   check(parseAnswer(R"({"response":7})").response == 2, "response clamped");

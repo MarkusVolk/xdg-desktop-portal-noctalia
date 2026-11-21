@@ -17,6 +17,13 @@ Implemented interfaces:
 - `org.freedesktop.impl.portal.Email`: a `mailto:` URI for the default mail client.
 - `org.freedesktop.impl.portal.Notification`: forwarded to the notification server (Noctalia),
   with the default action and buttons sent back to the application.
+- `org.freedesktop.impl.portal.Account`: the user's name and picture (AccountsService, else the
+  passwd entry and `~/.face`), after asking.
+- `org.freedesktop.impl.portal.Wallpaper`: sets Noctalia's wallpaper (`noctalia msg
+  wallpaper-set`), with a preview when asked; the picture is kept in
+  `$XDG_DATA_HOME/xdg-desktop-portal-noctalia/wallpapers`.
+- `org.freedesktop.impl.portal.DynamicLauncher`: confirms and names launchers and web app
+  launchers; no application gets install tokens without asking.
 
 Dialogs run in `noctalia-portal-dialog`, one process per dialog, so the daemon itself has no
 Wayland connection. Their colours come from a Noctalia template; add to

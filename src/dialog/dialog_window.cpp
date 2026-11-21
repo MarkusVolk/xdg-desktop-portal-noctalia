@@ -6,6 +6,7 @@
 #include "render/render_context.h"
 #include "ui/builders.h"
 #include "ui/controls/image.h"
+#include "ui/controls/input.h"
 #include "ui/style.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -40,6 +41,35 @@ namespace xdpn::dialog {
 
     void literal(Label& label) { label.setUseMarkup(false); }
 
+    // Size, glyph and default texts of each kind of dialog.
+    struct Look {
+      std::uint32_t width;
+      std::uint32_t height;
+      const char* glyph;
+      float iconSize;
+      const char* title;
+      const char* deny;
+      const char* accept;
+    };
+
+    Look lookFor(const Request& request) {
+      switch (request.kind) {
+      case Kind::AppChooser:
+        return {kChooserWidth, kChooserHeight, "apps", 28.0F, "Open With", "Cancel", "Open"};
+      case Kind::Account:
+        return {kAccessWidth, 260, "user", 56.0F, "Share Your Details", "Cancel", "Share"};
+      case Kind::Wallpaper:
+        return {560, 460, "photo", 28.0F, "Set Background", "Cancel", "Set"};
+      case Kind::Launcher:
+        return {kAccessWidth, request.detail.empty() ? 240U : 270U, "app-window", 48.0F, "Create Launcher", "Cancel",
+                "Create"};
+      case Kind::Access:
+      case Kind::Invalid:
+        break;
+      }
+      return {kAccessWidth, accessHeight(request), "shield-lock", 28.0F, "Allow Access", "Deny", "Allow"};
+    }
+
   } // namespace
 
   DialogWindow::DialogWindow(Request request, WaylandConnection& connection, RenderContext& renderer,
@@ -59,9 +89,10 @@ namespace xdpn::dialog {
       m_selected = known ? m_request.lastChoice : (apps.empty() ? std::string() : apps.front().id);
     }
 
-    const bool chooser = m_request.kind == Kind::AppChooser;
-    const std::uint32_t width = chooser ? kChooserWidth : kAccessWidth;
-    const std::uint32_t height = chooser ? kChooserHeight : accessHeight(m_request);
+    m_text = m_request.text;
+    const Look look = lookFor(m_request);
+    const std::uint32_t width = look.width;
+    const std::uint32_t height = look.height;
 
     m_surface.setRenderContext(&m_renderer);
     m_surface.setAnimationManager(&m_animations);
@@ -75,7 +106,7 @@ namespace xdpn::dialog {
           xdg_toplevel_set_max_size(toplevel, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height));
         },
         [] {});
-    const std::string title = !m_request.title.empty() ? m_request.title : (chooser ? "Open With" : "Allow Access");
+    const std::string title = !m_request.title.empty() ? m_request.title : look.title;
     if (!m_surface.initialize(nullptr, {.width = width,
                                         .height = height,
                                         .minWidth = width,
@@ -125,57 +156,69 @@ namespace xdpn::dialog {
                             .fill = colorSpecFromRole(ColorRole::Surface)});
     root->setAnimationManager(&m_animations);
 
+    const Look look = lookFor(m_request);
     const bool chooser = m_request.kind == Kind::AppChooser;
-    auto header = ui::row({.align = FlexAlign::Start, .gap = Style::spaceMd});
-    header->addChild(icon(renderer, m_request.icon, 28.0F, chooser ? "apps" : "shield-lock"));
+    auto header = ui::row({.align = look.iconSize > 32.0F ? FlexAlign::Center : FlexAlign::Start, .gap = Style::spaceMd});
+    header->addChild(icon(renderer, m_request.icon, look.iconSize, look.glyph));
     auto titles = ui::column({.align = FlexAlign::Start, .gap = Style::spaceXs, .flexGrow = 1.0F});
-    titles->addChild(ui::label({.text = !m_request.title.empty() ? m_request.title : (chooser ? "Open With" : "Allow Access"),
+    titles->addChild(ui::label({.text = !m_request.title.empty() ? m_request.title : look.title,
                                 .fontSize = Style::fontSizeTitle,
                                 .fontWeight = FontWeight::SemiBold,
                                 .color = colorSpecFromRole(ColorRole::OnSurface),
-                                .maxWidth = kTextWidth - 40.0F,
+                                .maxWidth = kTextWidth - look.iconSize - Style::spaceMd,
                                 .maxLines = 3,
                                 .configure = literal}));
     if (!m_request.subtitle.empty()) {
       titles->addChild(ui::label({.text = m_request.subtitle,
                                   .fontSize = Style::fontSizeCaption,
                                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                  .maxWidth = kTextWidth - 40.0F,
+                                  .maxWidth = kTextWidth - look.iconSize - Style::spaceMd,
                                   .maxLines = 4,
                                   .configure = literal}));
     }
     header->addChild(std::move(titles));
     root->addChild(std::move(header));
 
-    if (chooser) {
+    switch (m_request.kind) {
+    case Kind::AppChooser:
       buildChooser(*root, renderer);
-    } else {
+      break;
+    case Kind::Wallpaper:
+      buildWallpaper(*root, renderer);
+      break;
+    case Kind::Account:
+    case Kind::Launcher:
+      buildDetails(*root);
+      break;
+    case Kind::Access:
+    case Kind::Invalid:
       buildAccess(*root);
+      break;
     }
 
     auto buttons = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::End, .gap = Style::spaceSm});
-    buttons->addChild(ui::button({.text = chooser ? std::string("Cancel")
-                                                  : (!m_request.denyLabel.empty() ? m_request.denyLabel : "Deny"),
+    buttons->addChild(ui::button({.text = !m_request.denyLabel.empty() ? m_request.denyLabel : std::string(look.deny),
                                   .controlHeight = Style::controlHeightSm,
                                   .variant = ButtonVariant::Outline,
                                   .minWidth = 88.0F,
                                   .onClick = [this] { cancel(); }}));
     buttons->addChild(ui::button({.out = &m_accept,
-                                  .text = chooser ? std::string("Open")
-                                                  : (!m_request.grantLabel.empty() ? m_request.grantLabel : "Allow"),
+                                  .text = !m_request.grantLabel.empty() ? m_request.grantLabel : std::string(look.accept),
                                   .controlHeight = Style::controlHeightSm,
                                   .variant = ButtonVariant::Primary,
                                   .minWidth = 88.0F,
                                   .onClick = [this] { accept(); }}));
     if (chooser) {
       m_accept->setEnabled(!m_selected.empty());
+    } else if (m_request.kind == Kind::Launcher) {
+      m_accept->setEnabled(!m_text.empty());
     }
     root->addChild(std::move(buttons));
 
     m_root = std::move(root);
     m_surface.setSceneRoot(m_root.get());
     m_dispatcher.setSceneRoot(m_root.get());
-    m_dispatcher.setFocus(m_accept->inputArea());
+    m_dispatcher.setFocus(m_nameInput != nullptr ? m_nameInput->inputArea() : m_accept->inputArea());
   }
 
   void DialogWindow::buildAccess(Flex& content) {
@@ -236,6 +279,67 @@ namespace xdpn::dialog {
       content.addChild(std::move(group));
     }
     content.addChild(ui::spacer());
+  }
+
+  void DialogWindow::buildDetails(Flex& content) {
+    m_nameInput = nullptr;
+    if (!m_request.body.empty()) {
+      content.addChild(ui::label({.text = m_request.body,
+                                  .fontSize = Style::fontSizeBody,
+                                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                                  .maxWidth = kTextWidth,
+                                  .maxLines = 6,
+                                  .configure = literal}));
+    }
+    if (m_request.kind == Kind::Launcher) {
+      if (m_request.editable) {
+        content.addChild(ui::input({.out = &m_nameInput,
+                                    .value = m_text,
+                                    .placeholder = std::string("Name"),
+                                    .controlHeight = Style::controlHeight,
+                                    .onChange = [this](const std::string& value) {
+                                      m_text = value;
+                                      if (m_accept != nullptr) {
+                                        m_accept->setEnabled(!m_text.empty());
+                                      }
+                                      requestUpdate();
+                                    },
+                                    .onSubmit = [this](const std::string&) { accept(); }}));
+      } else {
+        content.addChild(ui::label({.text = m_text,
+                                    .fontSize = Style::fontSizeTitle,
+                                    .color = colorSpecFromRole(ColorRole::OnSurface),
+                                    .maxWidth = kTextWidth,
+                                    .configure = literal}));
+      }
+    }
+    if (!m_request.detail.empty()) {
+      content.addChild(ui::label({.text = m_request.detail,
+                                  .fontSize = Style::fontSizeCaption,
+                                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                                  .maxWidth = kTextWidth,
+                                  .maxLines = 2,
+                                  .ellipsize = TextEllipsize::End,
+                                  .configure = literal}));
+    }
+    content.addChild(ui::spacer());
+  }
+
+  void DialogWindow::buildWallpaper(Flex& content, Renderer& renderer) {
+    auto frame = ui::column({.align = FlexAlign::Stretch,
+                             .fill = colorSpecFromRole(ColorRole::SurfaceContainerLow),
+                             .styleRadius = Style::radiusLg,
+                             .clipChildren = true,
+                             .flexGrow = 1.0F});
+    if (!m_request.image.empty()) {
+      auto preview = ui::image({.fit = ImageFit::Cover, .styleRadius = Style::radiusLg, .flexGrow = 1.0F});
+      ImageSourceOptions options;
+      options.targetSize = 560;
+      preview->setAsyncReadyCallback([this] { requestUpdate(); });
+      preview->setSourceFile(renderer, m_request.image, options);
+      frame->addChild(std::move(preview));
+    }
+    content.addChild(std::move(frame));
   }
 
   void DialogWindow::buildChooser(Flex& content, Renderer& renderer) {
@@ -300,12 +404,17 @@ namespace xdpn::dialog {
   }
 
   void DialogWindow::accept() {
-    Answer result{.response = 0, .choices = {}, .application = {}};
+    Answer result{.response = 0, .choices = {}, .application = {}, .text = {}};
     if (m_request.kind == Kind::AppChooser) {
       if (m_selected.empty()) {
         return;
       }
       result.application = m_selected;
+    } else if (m_request.kind == Kind::Launcher) {
+      if (m_text.empty()) {
+        return;
+      }
+      result.text = m_text;
     } else {
       for (const auto& state : m_choices) {
         result.choices[state.choice.id] = state.value;
@@ -314,7 +423,7 @@ namespace xdpn::dialog {
     answer(std::move(result));
   }
 
-  void DialogWindow::cancel() { answer({.response = 1, .choices = {}, .application = {}}); }
+  void DialogWindow::cancel() { answer({.response = 1, .choices = {}, .application = {}, .text = {}}); }
 
   void DialogWindow::answer(Answer result) {
     if (m_answered) {
